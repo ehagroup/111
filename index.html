@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kas Keluarga</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        :root {
+            --body-bg: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            --glass-bg: rgba(255, 255, 255, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --neo-shadow-light: rgba(255, 255, 255, 0.8);
+            --neo-shadow-dark: rgba(0, 0, 0, 0.15);
+            --text-dark: #2d3748;
+            --text-light: #4a5568;
+            --income-color: #38a169;
+            --expense-color: #e53e3e;
+            --primary-color: #3182ce;
+            --warning-color: #dd6b20;
+            --card-bg: rgba(255, 255, 255, 0.3);
+            --input-bg: rgba(255, 255, 255, 0.4);
+        }
+
+        [data-theme="dark"] {
+            --body-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            --glass-bg: rgba(15, 23, 42, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --neo-shadow-light: rgba(255, 255, 255, 0.05);
+            --neo-shadow-dark: rgba(0, 0, 0, 0.4);
+            --text-dark: #f8fafc;
+            --text-light: #cbd5e1;
+            --card-bg: rgba(30, 41, 59, 0.5);
+            --input-bg: rgba(15, 23, 42, 0.6);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+
+        body {
+            background: var(--body-bg); min-height: 100vh; color: var(--text-dark);
+            padding: 20px; display: flex; justify-content: center; align-items: flex-start;
+            position: relative; transition: background 0.3s;
+        }
+
+        .glass {
+            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 20px; padding: 25px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .neo-input {
+            width: 100%; padding: 12px 15px; margin-top: 8px; margin-bottom: 15px;
+            background: var(--input-bg); border: none; border-radius: 12px;
+            color: var(--text-dark); font-size: 14px; outline: none;
+            box-shadow: inset 4px 4px 8px var(--neo-shadow-dark), inset -4px -4px 8px var(--neo-shadow-light);
+            transition: all 0.3s ease;
+        }
+        .neo-input:focus { background: rgba(255, 255, 255, 0.6); }
+        [data-theme="dark"] .neo-input:focus { background: rgba(30, 41, 59, 0.8); }
+
+        .neo-btn {
+            width: 100%; padding: 12px; background: var(--input-bg); border: none; border-radius: 12px;
+            color: var(--text-dark); font-weight: bold; font-size: 16px; cursor: pointer;
+            box-shadow: 4px 4px 10px var(--neo-shadow-dark), -4px -4px 10px var(--neo-shadow-light);
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .neo-btn:active {
+            box-shadow: inset 4px 4px 10px var(--neo-shadow-dark), inset -4px -4px 10px var(--neo-shadow-light);
+            transform: scale(0.98);
+        }
+
+        .text-center { text-align: center; }
+        .text-income { color: var(--income-color) !important; font-weight: bold;}
+        .text-expense { color: var(--expense-color) !important; font-weight: bold;}
+        .text-primary { color: var(--primary-color) !important; font-weight: bold;}
+
+        #login-screen, #app-screen { width: 100%; max-width: 1200px; }
+        #app-screen { display: none; flex-direction: column; gap: 20px; }
+        .login-box { max-width: 400px; margin: 10vh auto; }
+        
+        .header-app { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; position: relative; }
+        .filter-box { display: flex; align-items: center; gap: 10px; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .btn-small { padding: 8px 15px; font-size: 14px; width: auto; }
+
+        .settings-container { position: fixed; top: 20px; right: 20px; z-index: 3000; }
+        .btn-settings {
+            width: 45px; height: 45px; border-radius: 50%; padding: 0; background: var(--glass-bg); border: 1px solid var(--glass-border);
+            color: var(--text-dark); cursor: pointer; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); backdrop-filter: blur(10px); transition: transform 0.3s;
+        }
+        .btn-settings:hover { transform: rotate(45deg); }
+        .settings-menu {
+            display: none; position: absolute; top: 55px; right: 0; width: 280px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: blur(15px);
+            border-radius: 15px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); flex-direction: column; gap: 12px;
+        }
+        .settings-menu.active { display: flex; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .card { padding: 20px; border-radius: 15px; text-align: center; background: var(--card-bg); box-shadow: 4px 4px 10px var(--neo-shadow-dark), -4px -4px 10px var(--neo-shadow-light); transition: all 0.3s; }
+        .card h4 { color: var(--text-light); margin-bottom: 5px; }
+
+        .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .scroll-list { list-style: none; max-height: 400px; overflow-y: auto; padding-right: 5px; }
+        .scroll-list::-webkit-scrollbar { width: 6px; }
+        .scroll-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        .list-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 15px; margin-bottom: 12px;
+            background: var(--input-bg); border-radius: 15px; box-shadow: 3px 3px 8px var(--neo-shadow-dark), -3px -3px 8px var(--neo-shadow-light);
+            transition: transform 0.2s, background 0.2s;
+        }
+        .alloc-item:hover { background: rgba(255, 255, 255, 0.6); transform: translateY(-2px); box-shadow: 4px 4px 12px var(--neo-shadow-dark), -4px -4px 12px var(--neo-shadow-light); }
+        [data-theme="dark"] .alloc-item:hover { background: rgba(30, 41, 59, 0.7); }
+        .alloc-item:active { transform: scale(0.98); }
+        .del-btn { background: var(--expense-color); color: white; border: none; padding: 5px 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 4px;}
+        .del-btn:hover { background: #c53030; }
+        .chart-container { height: 250px; width: 100%; display: flex; justify-content: center; margin-bottom: 20px;}
+        #loader { display: none; text-align: center; font-weight: bold; color: var(--primary-color); margin-top: 10px;}
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(6px); z-index: 2000; justify-content: center; align-items: center;
+        }
+        .modal-box { max-width: 450px; width: 90%; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 20px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+
+        .icon-small { width: 14px; height: 14px; }
+        .icon-medium { width: 18px; height: 18px; }
+
+        @media (max-width: 800px) {
+            .main-content { grid-template-columns: 1fr; }
+            .header-app { flex-direction: column; align-items: stretch; }
+            .header-actions { justify-content: space-between; }
+            .settings-container { top: 10px; right: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <button class="btn-settings" onclick="toggleSettingsMenu()">
+            <i data-lucide="settings" class="icon-medium"></i>
+        </button>
+        <div id="settings-menu" class="settings-menu">
+            <h4 style="border-bottom: 1px solid var(--glass-border); padding-bottom: 5px; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="sliders" class="icon-small"></i> <span data-key="settingsTitle">Pengaturan</span>
+            </h4>
+            <div class="setting-item">
+                <span data-key="darkModeLabel">Mode Gelap</span>
+                <label class="switch">
+                    <input type="checkbox" id="theme-checkbox" onchange="switchTheme(this)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                <span data-key="langLabel">Bahasa</span>
+                <select id="lang-select" class="neo-input" style="margin: 0; padding: 6px 10px; font-size: 12px;" onchange="switchLanguage(this.value)">
+                    <option value="id">Bahasa Indonesia</option>
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="ja">日本語 (Japanese)</option>
+                    <option value="zh">中文 (Chinese)</option>
+                    <option value="ar">العربية (Arabic)</option>
+                </select>
+            </div>
+            <div class="setting-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                <span data-key="currencyLabel">Mata Uang (Live Kurs)</span>
+                <select id="currency-select" class="neo-input" style="margin: 0; padding: 6px 10px; font-size: 12px;" onchange="switchCurrency(this.value)">
+                    <option value="IDR">IDR (Rp)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="SGD">SGD ($)</option>
+                    <option value="JPY">JPY (¥)</option>
+                    <option value="MYR">MYR (RM)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="export-modal" class="modal-overlay">
+        <div class="modal-box glass">
+            <h3 class="text-center" style="margin-bottom: 15px;"><i data-lucide="file-spreadsheet" class="icon-medium" style="vertical-align: middle;"></i> <span data-key="downloadReportTitle">Unduh Laporan Neraca</span></h3>
+            <p style="font-size: 13px; color: var(--text-light); margin-bottom: 15px; text-align: center;" data-key="downloadReportDesc">Pilih rentang tanggal riwayat transaksi yang ingin dicatat ke dalam file Excel.</p>
+            
+            <label style="font-weight: bold; font-size: 14px;" data-key="fromDate">Dari Tanggal:</label>
+            <input type="date" id="export-start-date" class="neo-input">
+            
+            <label style="font-weight: bold; font-size: 14px;" data-key="toDate">Sampai Tanggal:</label>
+            <input type="date" id="export-end-date" class="neo-input">
+            
+            <div style="display: flex; gap: 12px; margin-top: 10px;">
+                <button type="button" onclick="closeExportModal()" class="neo-btn" style="color: var(--expense-color); background: rgba(255,255,255,0.6);">
+                    <i data-lucide="x"></i> <span data-key="cancelBtn">Batal</span>
+                </button>
+                <button type="button" onclick="processExcelExport()" class="neo-btn" style="color: var(--income-color); background: rgba(255,255,255,0.6);">
+                    <i data-lucide="download"></i> <span data-key="downloadBtn">Unduh</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-screen">
+        <div class="glass login-box">
+            <h2 class="text-center" style="margin-bottom: 10px;" data-key="appTitle">Kas Keluarga</h2>
+            <p class="text-center" style="font-size: 13px; margin-bottom: 20px;" data-key="appSubtitle">By CV Creative Project (EHA Group)</p>
+            
+            <form id="login-form">
+                <label data-key="emailLabel">Email Anda</label>
+                <input type="email" id="log-email" class="neo-input" placeholder="contoh@email.com" required>
+                
+                <label data-key="passwordLabel">Password</label>
+                <input type="password" id="log-password" class="neo-input" placeholder="Masukkan sandi" required>
+                
+                <button type="submit" class="neo-btn" style="color: var(--primary-color);">
+                    <i data-lucide="log-in"></i> <span data-key="loginBtn">Masuk</span>
+                </button>
+            </form>
+            <p id="loader"><i data-lucide="loader" class="lucide-spin" style="vertical-align: middle; width: 16px;"></i> <span data-key="cloudConnecting">Menghubungkan ke Cloud...</span></p>
+        </div>
+    </div>
+
+    <div id="app-screen">
+        <div class="glass header-app">
+            <div class="filter-box">
+                <strong><i data-lucide="calendar" class="icon-medium" style="vertical-align: bottom;"></i> <span data-key="filterMonth">Filter Bulan:</span></strong>
+                <input type="month" id="month-filter" class="neo-input" style="margin: 0; width: auto;">
+            </div>
+            <div class="header-actions" style="margin-right: 50px;">
+                <button onclick="openExportModal()" class="neo-btn btn-small" style="color: var(--income-color);">
+                    <i data-lucide="file-down" class="icon-medium"></i> <span data-key="neracaBtn">Neraca</span>
+                </button>
+                <button onclick="logout()" class="neo-btn btn-small" style="color: var(--expense-color);">
+                    <i data-lucide="log-out" class="icon-medium"></i> <span data-key="logoutBtn">Keluar</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="glass dashboard-grid">
+            <div class="card">
+                <h4 data-key="cumulativeBalance">Saldo Kumulatif</h4>
+                <h2 id="bal-display">0</h2>
+            </div>
+            <div class="card">
+                <h4 data-key="monthlyIncome">Pemasukan (Bulan Terpilih)</h4>
+                <h2 id="inc-display" class="text-income">0</h2>
+            </div>
+            <div class="card">
+                <h4 data-key="monthlyExpense">Pengeluaran (Bulan Terpilih)</h4>
+                <h2 id="exp-display" class="text-expense">0</h2>
+            </div>
+            <div class="card">
+                <h4 data-key="runningBalance">Sisa Saldo Bulan Berjalan</h4>
+                <h2 id="prev-bal-display">0</h2>
+            </div>
+        </div>
+
+        <div class="glass" id="allocation-section">
+            <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div style="display:flex; align-items:center; gap: 10px;">
+                    <h3 style="margin:0;"><i data-lucide="pie-chart" class="icon-medium"></i> <span data-key="allocPlanTitle">Rencana Alokasi (Bulan Ini)</span></h3>
+                </div>
+                <small id="alloc-summary" style="font-weight:bold; background: rgba(255,255,255,0.5); padding: 5px 10px; border-radius: 8px;"><span data-key="totalPctLabel">Total Persentase:</span> 0% | <span data-key="extraNomLabel">Extra Nominal:</span> 0</small>
+            </div>
+            
+            <div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.3); border-radius: 12px; display: inline-flex; align-items: center; gap: 10px;">
+                <label style="font-size: 13px; font-weight: bold; color: var(--text-dark);" data-key="savingPctLabel">Persentase Tabungan Bulanan:</label>
+                <input type="number" id="auto-saving-input" class="neo-input" style="width: 70px; margin: 0; padding: 5px 10px; text-align:center;" min="0" max="100" onchange="updateAutoSaving(this.value)">
+                <span style="font-weight: bold;">%</span>
+            </div>
+
+            <p style="font-size: 13px; margin-bottom: 15px; color: var(--text-light);"><em data-key="allocNote">*Pilih jenis alokasi berdasarkan persentase dari pemasukan atau angka nominal (tetap).</em></p>
+            
+            <form id="alloc-form" style="display:flex; flex-wrap: wrap; gap:10px; margin-bottom: 15px; align-items: center;">
+                <input type="text" id="alloc-name" class="neo-input" style="margin:0; flex: 1; min-width: 150px;" placeholder="Nama Opsi" required>
+                <select id="alloc-type" class="neo-input" style="margin:0; width:auto;">
+                    <option value="percent" data-key="optPercent">Persen (%)</option>
+                    <option value="nominal" data-key="optNominal">Nominal</option>
+                </select>
+                <input type="number" step="0.01" id="alloc-value" class="neo-input" style="margin:0; width:120px;" placeholder="Nilai/Persen" required min="0.01">
+                <button type="submit" class="neo-btn" style="margin:0; width:auto; padding: 0 15px; color: var(--warning-color);">
+                    <i data-lucide="plus-circle" class="icon-medium"></i> <span data-key="addBtn">Tambah</span>
+                </button>
+            </form>
+
+            <ul id="alloc-list" class="scroll-list" style="max-height: 300px;"></ul>
+        </div>
+
+        <div class="main-content">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="glass" id="form-container">
+                    <h3 class="text-center" style="display:flex; justify-content:center; align-items:center; gap:8px;">
+                        <i data-lucide="edit-3"></i> <span data-key="recordTxTitle">Catat Transaksi Baru</span>
+                    </h3>
+                    <form id="tx-form">
+                        <select id="type" class="neo-input">
+                            <option value="income" data-key="optIncome">Pemasukan (+)</option>
+                            <option value="expense" data-key="optExpense">Pengeluaran (-)</option>
+                        </select>
+                        
+                        <div style="position: relative;">
+                            <input type="text" id="category" class="neo-input" placeholder="Kategori" required>
+                            <button type="button" id="unlock-category" style="display: none; position: absolute; right: 12px; top: 16px; background: #e53e3e; border: none; padding: 6px 10px; border-radius: 8px; cursor: pointer; color: white; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); align-items: center; gap: 5px;">
+                                <i data-lucide="unlock" class="icon-small"></i> <span data-key="unlockBtn">Buka Kunci</span>
+                            </button>
+                        </div>
+                        
+                        <input type="text" id="sub-category" class="neo-input" placeholder="Rincian Spesifik (Opsional)" style="display: none; margin-top: -5px;">
+
+                        <input type="number" step="0.01" id="amount" class="neo-input" placeholder="Nominal" required>
+                        <input type="date" id="date" class="neo-input" required>
+                        <button type="submit" class="neo-btn" style="color: var(--primary-color);">
+                            <i data-lucide="save"></i> <span data-key="saveTxBtn">Simpan Transaksi</span>
+                        </button>
+                    </form>
+                </div>
+
+                <div class="glass">
+                    <h3 class="text-center" style="margin-bottom: 20px;" data-key="chartPropTitle">Proporsi Keuangan</h3>
+                    <h5 class="text-center" style="margin-bottom: 5px;" data-key="chartMonthLabel">Bulan Terpilih</h5>
+                    <div class="chart-container"><canvas id="myChartMonth"></canvas></div>
+                    <hr style="border: 1px solid var(--glass-border); margin: 20px 0;">
+                    <h5 class="text-center" style="margin-bottom: 5px;" data-key="chartTotalLabel">Total Keseluruhan</h5>
+                    <div class="chart-container"><canvas id="myChartTotal"></canvas></div>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="glass" style="flex: 1;">
+                    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 15px;">
+                        <h3 style="display:flex; align-items:center; gap:8px;"><i data-lucide="history"></i> <span data-key="historyTitle">Riwayat</span></h3>
+                        <small id="sync-status" style="color: var(--income-color); display:flex; align-items:center; gap:5px;">
+                            <i data-lucide="check-circle-2" class="icon-small"></i> <span data-key="syncSaved">Tersimpan</span>
+                        </small>
+                    </div>
+                    <ul id="tx-list" class="scroll-list" style="max-height: 1000px;"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass">
+            <h3 class="text-center" style="margin-bottom: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
+                <i data-lucide="trending-up"></i> <span data-key="chartFluctTitle">Grafik Fluktuasi Keuangan</span>
+            </h3>
+            <div class="chart-container" style="height: 350px;">
+                <canvas id="myChartFluctuation"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBHLOK5Sw-hlpHx9hUqKolMqUAgp5Uk3CHfwbjOdMVDhyef_Kl_dQ8eISgoqgluf1Clg/exec';
+
+        let currentUser = { email: '', password: '' };
+        let transactions = [];
+        let currentLang = localStorage.getItem('kas_lang') || 'id';
+        let currentCurrency = localStorage.getItem('kas_currency') || 'IDR';
+        
+        let exchangeRates = JSON.parse(localStorage.getItem('kas_rates')) || {USD: 1, IDR: 15000, EUR: 0.9, SGD: 1.35, JPY: 150, MYR: 4.7};
+        let chartMonth = null, chartTotal = null, chartFluctuation = null;
+        let customAllocations = JSON.parse(localStorage.getItem('kas_allocations')) || [];
+        let AUTO_SAVING_PERCENT = parseFloat(localStorage.getItem('kas_saving_pct')) || 20; 
+
+        const loginScreen = document.getElementById('login-screen');
+        const appScreen = document.getElementById('app-screen');
+        const loader = document.getElementById('loader');
+        const syncStatus = document.getElementById('sync-status');
+        const monthFilter = document.getElementById('month-filter');
+
+        const languages = {
+            id: {
+                appTitle: "Kas Keluarga", appSubtitle: "By CV Creative Project (EHA Group)",
+                settingsTitle: "Pengaturan", darkModeLabel: "Mode Gelap", langLabel: "Bahasa", currencyLabel: "Mata Uang (Live Kurs)",
+                downloadReportTitle: "Unduh Laporan Neraca", downloadReportDesc: "Pilih rentang tanggal riwayat transaksi yang ingin dicatat ke file Excel.",
+                fromDate: "Dari Tanggal:", toDate: "Sampai Tanggal:", cancelBtn: "Batal", downloadBtn: "Unduh",
+                emailLabel: "Email Anda", passwordLabel: "Password", loginBtn: "Masuk", cloudConnecting: "Menghubungkan ke Cloud...",
+                filterMonth: "Filter Bulan:", neracaBtn: "Neraca", logoutBtn: "Keluar",
+                cumulativeBalance: "Saldo Kumulatif", monthlyIncome: "Pemasukan (Bulan Terpilih)", monthlyExpense: "Pengeluaran (Bulan Terpilih)", runningBalance: "Sisa Saldo Bulan Berjalan",
+                allocPlanTitle: "Rencana Alokasi (Bulan Ini)", savingPctLabel: "Persentase Tabungan Bulanan:", allocNote: "*Pilih jenis alokasi berdasarkan persentase dari pemasukan atau angka nominal (tetap).",
+                optPercent: "Persen (%)", optNominal: "Nominal", addBtn: "Tambah", recordTxTitle: "Catat Transaksi Baru",
+                optIncome: "Pemasukan (+)", optExpense: "Pengeluaran (-)", unlockBtn: "Buka Kunci", saveTxBtn: "Simpan Transaksi",
+                chartPropTitle: "Proporsi Keuangan", chartMonthLabel: "Bulan Terpilih", chartTotalLabel: "Total Keseluruhan",
+                historyTitle: "Riwayat", syncSaved: "Tersimpan", chartFluctTitle: "Grafik Fluktuasi Keuangan",
+                savingTitle: "Tabungan Bulanan", used: "Terpakai", remaining: "Sisa", useFund: "Gunakan", delete: "Hapus", fixed: "Tetap",
+                totalPctLabel: "Total Persentase:", extraNomLabel: "Extra Nominal:", converting: "Mengonversi", errCurrency: "Gagal mengambil data kurs.",
+                errEmailNotFound: "Email tidak terdaftar!", 
+                errWrongPass: "Akun tidak terdaftar atau email/password salah!",
+                plcAllocName: "Nama Opsi (Cth: Listrik)", plcAllocValue: "Nilai/Persen", plcCategory: "Kategori (Cth: Gaji)", plcSubCategory: "Rincian Spesifik (Opsional)", plcAmount: "Nominal",
+                alertAllocExists: "Nama opsi alokasi sudah ada!", alertMaxPct: "Total persentase melebihi 100%.", alertDelAlloc: "Hapus opsi alokasi ini?", alertDelTx: "Hapus transaksi ini?",
+                lblInc: "Pemasukan", lblExp: "Pengeluaran", lblTotalInc: "Total Pemasukan", lblTotalExp: "Total Pengeluaran", lblNet: "Selisih (Net)"
+            },
+            en: {
+                appTitle: "Family Cash", appSubtitle: "By CV Creative Project (EHA Group)",
+                settingsTitle: "Settings", darkModeLabel: "Dark Mode", langLabel: "Language", currencyLabel: "Currency (Live Rate)",
+                downloadReportTitle: "Download Balance Report", downloadReportDesc: "Choose a date range to export transaction history to Excel.",
+                fromDate: "From Date:", toDate: "To Date:", cancelBtn: "Cancel", downloadBtn: "Download",
+                emailLabel: "Your Email", passwordLabel: "Password", loginBtn: "Login", cloudConnecting: "Connecting to Cloud...",
+                filterMonth: "Month Filter:", neracaBtn: "Balance", logoutBtn: "Logout",
+                cumulativeBalance: "Cumulative Balance", monthlyIncome: "Income (Selected Month)", monthlyExpense: "Expense (Selected Month)", runningBalance: "Net Balance (Selected Month)",
+                allocPlanTitle: "Allocation Plan", savingPctLabel: "Monthly Saving %:", allocNote: "*Choose allocation based on percentage or fixed nominal.",
+                optPercent: "Percent (%)", optNominal: "Nominal", addBtn: "Add", recordTxTitle: "Record New Transaction",
+                optIncome: "Income (+)", optExpense: "Expense (-)", unlockBtn: "Unlock", saveTxBtn: "Save Transaction",
+                chartPropTitle: "Financial Proportion", chartMonthLabel: "Selected Month", chartTotalLabel: "Grand Total",
+                historyTitle: "History", syncSaved: "Saved", chartFluctTitle: "Financial Fluctuation",
+                savingTitle: "Monthly Savings", used: "Used", remaining: "Remaining", useFund: "Use", delete: "Delete", fixed: "Fixed",
+                totalPctLabel: "Total Percent:", extraNomLabel: "Extra Nominal:", converting: "Converting", errCurrency: "Failed to fetch exchange rates.",
+                errEmailNotFound: "Email not registered!", 
+                errWrongPass: "Account not registered or incorrect email/password!",
+                plcAllocName: "Option Name (e.g. Bill)", plcAllocValue: "Value/Percent", plcCategory: "Category (e.g. Salary)", plcSubCategory: "Specific Details (Optional)", plcAmount: "Amount",
+                alertAllocExists: "Allocation name already exists!", alertMaxPct: "Total percentage exceeds 100%.", alertDelAlloc: "Delete this allocation?", alertDelTx: "Delete this transaction?",
+                lblInc: "Income", lblExp: "Expense", lblTotalInc: "Total Income", lblTotalExp: "Total Expense", lblNet: "Net Balance"
+            },
+            es: {
+                appTitle: "Fondo Familiar", appSubtitle: "Por CV Creative Project (EHA Group)",
+                settingsTitle: "Configuraciones", darkModeLabel: "Modo Oscuro", langLabel: "Idioma", currencyLabel: "Moneda (Tasa en Vivo)",
+                downloadReportTitle: "Descargar Balance", downloadReportDesc: "Elige un rango de fechas para exportar a Excel.",
+                fromDate: "Desde:", toDate: "Hasta:", cancelBtn: "Cancelar", downloadBtn: "Descargar",
+                emailLabel: "Tu Correo", passwordLabel: "Contraseña", loginBtn: "Entrar", cloudConnecting: "Conectando...",
+                filterMonth: "Filtro de Mes:", neracaBtn: "Balance", logoutBtn: "Salir",
+                cumulativeBalance: "Saldo Acumulado", monthlyIncome: "Ingreso (Mes)", monthlyExpense: "Gasto (Mes)", runningBalance: "Saldo Neto (Mes)",
+                allocPlanTitle: "Plan de Asignación", savingPctLabel: "% Ahorro Mensual:", allocNote: "*Elige porcentaje o monto fijo.",
+                optPercent: "Por ciento (%)", optNominal: "Nominal", addBtn: "Añadir", recordTxTitle: "Nueva Transacción",
+                optIncome: "Ingreso (+)", optExpense: "Gasto (-)", unlockBtn: "Desbloquear", saveTxBtn: "Guardar",
+                chartPropTitle: "Proporción Financiera", chartMonthLabel: "Mes Seleccionado", chartTotalLabel: "Gran Total",
+                historyTitle: "Historial", syncSaved: "Guardado", chartFluctTitle: "Fluctuación Financiera",
+                savingTitle: "Ahorro Mensual", used: "Usado", remaining: "Restante", useFund: "Usar", delete: "Borrar", fixed: "Fijo",
+                totalPctLabel: "Porcentaje Total:", extraNomLabel: "Nominal Extra:", converting: "Convirtiendo", errCurrency: "Error al obtener tasas.",
+                errEmailNotFound: "¡Correo no registrado!", 
+                errWrongPass: "¡Cuenta no registrada o correo/contraseña incorrectos!",
+                plcAllocName: "Nombre (ej. Luz)", plcAllocValue: "Valor/Porcentaje", plcCategory: "Categoría (ej. Salario)", plcSubCategory: "Detalles (Opcional)", plcAmount: "Monto",
+                alertAllocExists: "¡Esa asignación ya existe!", alertMaxPct: "Supera el 100%.", alertDelAlloc: "¿Borrar asignación?", alertDelTx: "¿Borrar transacción?",
+                lblInc: "Ingreso", lblExp: "Gasto", lblTotalInc: "Ingreso Total", lblTotalExp: "Gasto Total", lblNet: "Neto"
+            },
+            ja: {
+                appTitle: "家族の資金", appSubtitle: "CV Creative Project (EHA Group) 制作",
+                settingsTitle: "設定", darkModeLabel: "ダークモード", langLabel: "言語", currencyLabel: "通貨 (ライブレート)",
+                downloadReportTitle: "レポートのダウンロード", downloadReportDesc: "Excelにエクスポートする日付範囲を選択します。",
+                fromDate: "開始日:", toDate: "終了日:", cancelBtn: "キャンセル", downloadBtn: "ダウンロード",
+                emailLabel: "メール", passwordLabel: "パスワード", loginBtn: "ログイン", cloudConnecting: "クラウドに接続中...",
+                filterMonth: "月フィルター:", neracaBtn: "残高", logoutBtn: "ログアウト",
+                cumulativeBalance: "累積残高", monthlyIncome: "収入 (選択月)", monthlyExpense: "支出 (選択月)", runningBalance: "純残高 (選択月)",
+                allocPlanTitle: "割り当てプラン", savingPctLabel: "月間貯蓄率:", allocNote: "*割合または固定額を選択してください。",
+                optPercent: "パーセント (%)", optNominal: "固定額", addBtn: "追加", recordTxTitle: "新規取引を記録",
+                optIncome: "収入 (+)", optExpense: "支出 (-)", unlockBtn: "ロック解除", saveTxBtn: "保存",
+                chartPropTitle: "財務比率", chartMonthLabel: "選択された月", chartTotalLabel: "総計",
+                historyTitle: "履歴", syncSaved: "保存済み", chartFluctTitle: "財務変動チャート",
+                savingTitle: "月間貯金", used: "使用済み", remaining: "残り", useFund: "使う", delete: "削除", fixed: "固定",
+                totalPctLabel: "合計パーセント:", extraNomLabel: "追加額:", converting: "変換中", errCurrency: "為替レートの取得に失敗しました。",
+                errEmailNotFound: "メールが登録されていません！", 
+                errWrongPass: "アカウントが未登録か、メール/パスワードが間違っています！",
+                plcAllocName: "名前 (例: 電気代)", plcAllocValue: "値/パーセント", plcCategory: "カテゴリ (例: 給与)", plcSubCategory: "詳細 (任意)", plcAmount: "金額",
+                alertAllocExists: "その割り当ては既に存在します！", alertMaxPct: "合計が100%を超えています。", alertDelAlloc: "削除しますか？", alertDelTx: "削除しますか？",
+                lblInc: "収入", lblExp: "支出", lblTotalInc: "総収入", lblTotalExp: "総支出", lblNet: "純残高"
+            },
+            zh: {
+                appTitle: "家庭资金", appSubtitle: "由 CV Creative Project (EHA Group) 制作",
+                settingsTitle: "设置", darkModeLabel: "深色模式", langLabel: "语言", currencyLabel: "货币 (实时汇率)",
+                downloadReportTitle: "下载资产负债表", downloadReportDesc: "选择日期范围导出到Excel。",
+                fromDate: "从日期:", toDate: "到日期:", cancelBtn: "取消", downloadBtn: "下载",
+                emailLabel: "您的邮箱", passwordLabel: "密码", loginBtn: "登录", cloudConnecting: "正在连接云端...",
+                filterMonth: "月份过滤:", neracaBtn: "余额表", logoutBtn: "登出",
+                cumulativeBalance: "累计余额", monthlyIncome: "收入 (选定月份)", monthlyExpense: "支出 (选定月份)", runningBalance: "净余额 (选定月份)",
+                allocPlanTitle: "分配计划", savingPctLabel: "每月储蓄百分比:", allocNote: "*选择基于百分比或固定金额的分配。",
+                optPercent: "百分比 (%)", optNominal: "固定金额", addBtn: "添加", recordTxTitle: "记录新交易",
+                optIncome: "收入 (+)", optExpense: "支出 (-)", unlockBtn: "解锁", saveTxBtn: "保存",
+                chartPropTitle: "财务比例", chartMonthLabel: "选定月份", chartTotalLabel: "总计",
+                historyTitle: "历史记录", syncSaved: "已保存", chartFluctTitle: "财务波动图",
+                savingTitle: "每月储蓄", used: "已用", remaining: "剩余", useFund: "使用", delete: "删除", fixed: "固定",
+                totalPctLabel: "总百分比:", extraNomLabel: "额外金额:", converting: "转换中", errCurrency: "获取汇率失败。",
+                errEmailNotFound: "邮箱未注册！", 
+                errWrongPass: "未注册账户或邮箱/密码错误！",
+                plcAllocName: "名称 (如: 电费)", plcAllocValue: "值/百分比", plcCategory: "类别 (如: 工资)", plcSubCategory: "具体细节 (可选)", plcAmount: "金额",
+                alertAllocExists: "分配名称已存在！", alertMaxPct: "总百分比超过100%。", alertDelAlloc: "确认删除此分配？", alertDelTx: "确认删除此交易？",
+                lblInc: "收入", lblExp: "支出", lblTotalInc: "总收入", lblTotalExp: "总支出", lblNet: "净额"
+            },
+            ar: {
+                appTitle: "صندوق العائلة", appSubtitle: "بواسطة CV Creative Project",
+                settingsTitle: "إعدادات", darkModeLabel: "الوضع الداكن", langLabel: "لغة", currencyLabel: "العملة (سعر مباشر)",
+                downloadReportTitle: "تحميل تقرير الرصيد", downloadReportDesc: "اختر نطاق التاريخ للتصدير إلى Excel.",
+                fromDate: "من تاريخ:", toDate: "إلى تاريخ:", cancelBtn: "إلغاء", downloadBtn: "تحميل",
+                emailLabel: "بريدك الإلكتروني", passwordLabel: "كلمة المرور", loginBtn: "تسجيل الدخول", cloudConnecting: "جاري الاتصال السحابي...",
+                filterMonth: "تصفية الشهر:", neracaBtn: "الرصيد", logoutBtn: "خروج",
+                cumulativeBalance: "الرصيد التراكمي", monthlyIncome: "الدخل (الشهر المحدد)", monthlyExpense: "المصروفات (الشهر المحدد)", runningBalance: "الرصيد الصافي (الشهر المحدد)",
+                allocPlanTitle: "خطة التخصيص", savingPctLabel: "نسبة التوفير الشهري:", allocNote: "*اختر النسبة المئوية أو المبلغ الثابت.",
+                optPercent: "نسبة مئوية (%)", optNominal: "مبلغ ثابت", addBtn: "إضافة", recordTxTitle: "تسجيل معاملة جديدة",
+                optIncome: "دخل (+)", optExpense: "مصروف (-)", unlockBtn: "فتح", saveTxBtn: "حفظ",
+                chartPropTitle: "النسب المالية", chartMonthLabel: "الشهر المحدد", chartTotalLabel: "المجموع الكلي",
+                historyTitle: "سجل", syncSaved: "تم الحفظ", chartFluctTitle: "الرسم البياني المالي",
+                savingTitle: "المدخرات الشهرية", used: "مستخدم", remaining: "متبقي", useFund: "استخدام", delete: "حذف", fixed: "ثابت",
+                totalPctLabel: "إجمالي النسبة:", extraNomLabel: "المبلغ الإضافي:", converting: "جاري التحويل", errCurrency: "فشل في جلب أسعار الصرف.",
+                errEmailNotFound: "البريد الإلكتروني غير مسجل!", 
+                errWrongPass: "الحساب غير مسجل أو البريد الإلكتروني/كلمة المرور غير صحيحة!",
+                plcAllocName: "الاسم (مثل: فاتورة)", plcAllocValue: "القيمة/النسبة", plcCategory: "الفئة (مثل: راتب)", plcSubCategory: "التفاصيل (اختياري)", plcAmount: "المبلغ",
+                alertAllocExists: "اسم التخصيص موجود مسبقاً!", alertMaxPct: "إجمالي النسبة يتجاوز 100%.", alertDelAlloc: "حذف هذا التخصيص؟", alertDelTx: "حذف هذه المعاملة؟",
+                lblInc: "دخل", lblExp: "مصروف", lblTotalInc: "إجمالي الدخل", lblTotalExp: "إجمالي المصروفات", lblNet: "الصافي"
+            }
+        };
+
+        // Fungsi fetch dan menyimpan Exchange Rate secara global
+        async function updateExchangeRates() {
+            try {
+                const res = await fetch('https://open.er-api.com/v6/latest/USD');
+                const data = await res.json();
+                exchangeRates = data.rates;
+                localStorage.setItem('kas_rates', JSON.stringify(exchangeRates));
+            } catch(e) {
+                console.warn('Failed to fetch rates, using cached.');
+            }
+        }
+
+        // Fungsi mengonversi Nilai Asli (Base Amount) ke Nilai yang Ditampilkan (Display Amount)
+        function getConvertedAmount(amount, fromCurrency) {
+            if (!fromCurrency) fromCurrency = 'IDR'; // Backward compatibility
+            if (fromCurrency === currentCurrency) return amount;
+            if (!exchangeRates[currentCurrency] || !exchangeRates[fromCurrency]) return amount;
+            
+            // Konversi ke USD dahulu, baru ke mata uang target
+            const amountInUSD = amount / exchangeRates[fromCurrency];
+            return amountInUSD * exchangeRates[currentCurrency];
+        }
+
+        const formatCurrency = (angka) => {
+            const locale = {IDR:'id-ID', USD:'en-US', EUR:'de-DE', SGD:'en-SG', JPY:'ja-JP', MYR:'ms-MY'};
+            return new Intl.NumberFormat(locale[currentCurrency]||'id-ID', { style: 'currency', currency: currentCurrency, minimumFractionDigits: 0 }).format(angka);
+        };
+
+        window.toggleSettingsMenu = () => { document.getElementById('settings-menu').classList.toggle('active'); };
+        document.addEventListener('click', (e) => {
+            if (!document.querySelector('.settings-container').contains(e.target)) { document.getElementById('settings-menu').classList.remove('active'); }
+        });
+
+        window.switchTheme = (checkbox) => {
+            if (checkbox.checked) { document.documentElement.setAttribute('data-theme', 'dark'); localStorage.setItem('kas_theme', 'dark'); } 
+            else { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('kas_theme', 'light'); }
+        };
+
+        window.switchLanguage = (lang) => {
+            currentLang = lang; localStorage.setItem('kas_lang', lang);
+            applyLanguage(); updateUI();
+        };
+
+        const applyLanguage = () => {
+            const dict = languages[currentLang];
+            document.querySelectorAll('[data-key]').forEach(el => { if (dict[el.getAttribute('data-key')]) el.innerText = dict[el.getAttribute('data-key')]; });
+            
+            document.getElementById('alloc-name').placeholder = dict.plcAllocName;
+            document.getElementById('alloc-value').placeholder = dict.plcAllocValue;
+            document.getElementById('category').placeholder = dict.plcCategory;
+            document.getElementById('sub-category').placeholder = dict.plcSubCategory;
+            document.getElementById('amount').placeholder = dict.plcAmount;
+            
+            if(currentLang === 'ar') document.body.style.direction = 'rtl';
+            else document.body.style.direction = 'ltr';
+        };
+
+        window.switchCurrency = async (newCurr) => {
+            if(newCurr === currentCurrency) return;
+            const dict = languages[currentLang];
+            
+            syncStatus.innerHTML = `<i data-lucide="refresh-cw" class="lucide-spin icon-small"></i> ${dict.converting}...`;
+            lucide.createIcons();
+            
+            try {
+                await updateExchangeRates(); // Perbarui rate sebelum mengganti display
+                currentCurrency = newCurr;
+                localStorage.setItem('kas_currency', currentCurrency);
+            } catch(err) {
+                alert(dict.errCurrency);
+                document.getElementById('currency-select').value = currentCurrency;
+            } finally { 
+                updateUI(); // Mengupdate display, TANPA menyimpan ke database cloud (mencegah overwriting nilai asli)
+            }
+        };
+
+        const initSettings = () => {
+            if (localStorage.getItem('kas_theme') === 'dark') { document.documentElement.setAttribute('data-theme', 'dark'); document.getElementById('theme-checkbox').checked = true; }
+            document.getElementById('lang-select').value = currentLang; applyLanguage();
+            document.getElementById('currency-select').value = currentCurrency;
+        };
+
+        lucide.createIcons();
+        const today = new Date();
+        monthFilter.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        document.getElementById('date').valueAsDate = today;
+        document.getElementById('auto-saving-input').value = AUTO_SAVING_PERCENT;
+
+        window.updateAutoSaving = (val) => { AUTO_SAVING_PERCENT = parseFloat(val) || 0; localStorage.setItem('kas_saving_pct', AUTO_SAVING_PERCENT); updateUI(); };
+
+        window.updateUI = () => {
+            const selectedMonth = monthFilter.value; 
+            const filteredTx = transactions.filter(t => t.date.startsWith(selectedMonth));
+            const dict = languages[currentLang];
+
+            let totalIncome = 0, totalExpense = 0;
+            const txListEl = document.getElementById('tx-list'); txListEl.innerHTML = ''; 
+
+            filteredTx.forEach(t => {
+                const convAmt = getConvertedAmount(t.amount, t.currency);
+                if (t.type === 'income') totalIncome += convAmt; else totalExpense += convAmt;
+                const li = document.createElement('li'); li.className = 'list-item';
+                li.innerHTML = `
+                    <div><strong>${t.category}</strong><br><small style="color: #718096"><i data-lucide="calendar" class="icon-small" style="vertical-align:text-bottom;"></i> ${t.date}</small></div>
+                    <div style="text-align: ${currentLang==='ar' ? 'left' : 'right'};">
+                        <span class="${t.type === 'income' ? 'text-income' : 'text-expense'}">${t.type === 'income' ? '+' : '-'}${formatCurrency(convAmt)}</span><br>
+                        <button class="del-btn" style="margin-top: 5px; font-size: 12px;" onclick="deleteTx('${t.id}')"><i data-lucide="trash-2" class="icon-small"></i> ${dict.delete}</button>
+                    </div>`;
+                txListEl.appendChild(li);
+            });
+
+            document.getElementById('inc-display').innerText = formatCurrency(totalIncome);
+            document.getElementById('exp-display').innerText = formatCurrency(totalExpense);
+            
+            let prevBalance = 0, totalBalance = 0;
+            transactions.forEach(t => {
+                const convAmt = getConvertedAmount(t.amount, t.currency);
+                if(t.type === 'income') totalBalance += convAmt; else totalBalance -= convAmt;
+                if(t.date < selectedMonth + '-01') { if(t.type === 'income') prevBalance += convAmt; else prevBalance -= convAmt; }
+            });
+            
+            document.getElementById('prev-bal-display').innerText = formatCurrency(totalIncome - totalExpense);
+            document.getElementById('bal-display').innerText = formatCurrency(totalBalance);
+
+            updateCharts(totalIncome, totalExpense); updateAllocationsUI(totalIncome, filteredTx); lucide.createIcons();
+            
+            syncStatus.innerHTML = `<i data-lucide="check-circle-2" class="icon-small"></i> ${dict.syncSaved}`;
+            syncStatus.style.color = "var(--income-color)"; lucide.createIcons();
+        };
+
+        const updateAllocationsUI = (totalIncome, filteredTx) => {
+            const allocListEl = document.getElementById('alloc-list'); allocListEl.innerHTML = '';
+            const dict = languages[currentLang];
+            let totalPercentUsed = AUTO_SAVING_PERCENT, totalNominalUsed = 0;
+
+            const getSpentByCategory = (catName) => { 
+                return filteredTx.filter(t => t.type === 'expense' && (t.category === catName || t.category.startsWith(`${catName} (`)))
+                                 .reduce((sum, t) => sum + getConvertedAmount(t.amount, t.currency), 0); 
+            };
+
+            const spentSaving = getSpentByCategory(dict.savingTitle);
+            const savingNominal = (totalIncome * AUTO_SAVING_PERCENT) / 100;
+            const sisaSaving = savingNominal - spentSaving;
+
+            allocListEl.innerHTML += `
+                <li class="list-item alloc-item" style="cursor:pointer; border-left: 6px solid var(--primary-color);" onclick="useAllocation('${dict.savingTitle}', ${sisaSaving > 0 ? sisaSaving : 0})">
+                    <div><strong>${dict.savingTitle} (Auto ${AUTO_SAVING_PERCENT}%)</strong><br><small style="color: #718096">${dict.used}: ${formatCurrency(spentSaving)} | ${dict.remaining}: <span style="color: var(--text-dark); font-weight:bold;">${formatCurrency(sisaSaving)}</span></small></div>
+                    <div style="text-align:${currentLang==='ar' ? 'left' : 'right'};"><span class="text-primary" style="font-size: 16px;">${formatCurrency(savingNominal)}</span><br>
+                        <small style="color: var(--primary-color); display:flex; align-items:center; gap:4px; justify-content:${currentLang==='ar' ? 'flex-start' : 'flex-end'};">${dict.useFund} <i data-lucide="arrow-right-circle" class="icon-small"></i></small>
+                    </div>
+                </li>`;
+
+            customAllocations.forEach((al, index) => {
+                let isPercent = al.type === 'percent' || al.percentage !== undefined;
+                let val = al.value || al.percentage;
+                let nominal = 0, label = '';
+                
+                if(isPercent) { 
+                    totalPercentUsed += val; 
+                    nominal = (totalIncome * val) / 100; 
+                    label = `${al.name} (${val}%)`; 
+                } else { 
+                    nominal = getConvertedAmount(val, al.currency);
+                    totalNominalUsed += nominal; 
+                    label = `${al.name} (${dict.fixed})`; 
+                }
+
+                const spent = getSpentByCategory(al.name); const sisa = nominal - spent;
+
+                allocListEl.innerHTML += `
+                    <li class="list-item alloc-item" style="cursor:pointer; border-left: 6px solid var(--warning-color);" onclick="useAllocation('${al.name}', ${sisa > 0 ? sisa : 0})">
+                        <div><strong>${label}</strong><br><small style="color: #718096">${dict.used}: ${formatCurrency(spent)} | ${dict.remaining}: <span style="color: var(--text-dark); font-weight:bold;">${formatCurrency(sisa)}</span></small></div>
+                        <div style="text-align:${currentLang==='ar' ? 'left' : 'right'};"><span style="color: var(--warning-color); font-weight:bold; font-size: 16px;">${formatCurrency(nominal)}</span><br>
+                            <div style="display:flex; justify-content:${currentLang==='ar' ? 'flex-start' : 'flex-end'}; align-items:center; gap:10px; margin-top:5px;">
+                                <small style="color: var(--warning-color); display:flex; align-items:center; gap:4px;">${dict.useFund} <i data-lucide="arrow-right-circle" class="icon-small"></i></small>
+                                <button class="del-btn" style="font-size: 11px; padding: 4px 6px;" onclick="deleteAllocation(event, ${index})"><i data-lucide="trash-2" class="icon-small"></i></button>
+                            </div>
+                        </div>
+                    </li>`;
+            });
+            document.getElementById('alloc-summary').innerHTML = `<span data-key="totalPctLabel">${dict.totalPctLabel}</span> <span style="color:${totalPercentUsed > 100 ? 'var(--expense-color)' : 'inherit'}">${totalPercentUsed}%</span> | <span data-key="extraNomLabel">${dict.extraNomLabel}</span> ${formatCurrency(totalNominalUsed)}`;
+        };
+
+        document.getElementById('alloc-form').addEventListener('submit', (e) => {
+            e.preventDefault(); const dict = languages[currentLang];
+            const name = document.getElementById('alloc-name').value.trim();
+            const type = document.getElementById('alloc-type').value;
+            const value = parseFloat(document.getElementById('alloc-value').value);
+
+            if (name.toLowerCase() === dict.savingTitle.toLowerCase() || customAllocations.some(a => a.name.toLowerCase() === name.toLowerCase())) { alert(dict.alertAllocExists); return; }
+
+            let currentPercent = AUTO_SAVING_PERCENT;
+            customAllocations.forEach(a => { if((a.type === 'percent' || a.percentage)) currentPercent += (a.value || a.percentage); });
+            if (type === 'percent' && (currentPercent + value > 100)) { alert(dict.alertMaxPct); return; }
+
+            customAllocations.push({ name, type, value, currency: currentCurrency }); localStorage.setItem('kas_allocations', JSON.stringify(customAllocations));
+            document.getElementById('alloc-name').value = ''; document.getElementById('alloc-value').value = ''; updateUI(); 
+        });
+
+        window.deleteAllocation = (event, index) => { event.stopPropagation(); const dict = languages[currentLang]; if(confirm(dict.alertDelAlloc)) { customAllocations.splice(index, 1); localStorage.setItem('kas_allocations', JSON.stringify(customAllocations)); updateUI(); } };
+
+        window.useAllocation = (name, amount) => {
+            document.getElementById('type').value = 'expense';
+            const catInput = document.getElementById('category'); catInput.value = name; catInput.readOnly = true; catInput.style.background = 'var(--glass-bg)';
+            document.getElementById('unlock-category').style.display = 'flex';
+            const subCatInput = document.getElementById('sub-category'); subCatInput.style.display = 'block'; subCatInput.value = ''; 
+            document.getElementById('amount').value = amount.toFixed(2);
+            
+            const formContainer = document.getElementById('form-container'); formContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            formContainer.style.boxShadow = '0 0 20px var(--primary-color)'; formContainer.style.transform = 'scale(1.02)';
+            setTimeout(() => { formContainer.style.boxShadow = '0 8px 32px 0 rgba(31, 38, 135, 0.1)'; formContainer.style.transform = 'scale(1)'; }, 800);
+            subCatInput.focus();
+        };
+
+        document.getElementById('unlock-category').addEventListener('click', () => {
+            const catInput = document.getElementById('category'); catInput.readOnly = false; catInput.style.background = 'var(--input-bg)'; catInput.value = '';
+            document.getElementById('unlock-category').style.display = 'none';
+            const subCatInput = document.getElementById('sub-category'); subCatInput.style.display = 'none'; subCatInput.value = ''; catInput.focus();
+        });
+
+        const updateCharts = (monthIncome, monthExpense) => {
+            const dict = languages[currentLang];
+            const ctxMonth = document.getElementById('myChartMonth').getContext('2d');
+            if (chartMonth) chartMonth.destroy();
+            chartMonth = new Chart(ctxMonth, { type: 'doughnut', data: { labels: [dict.lblInc, dict.lblExp], datasets: [{ data: [monthIncome, monthExpense], backgroundColor: ['#38a169', '#e53e3e'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+
+            let totalInc = 0, totalExp = 0; 
+            transactions.forEach(t => { 
+                const convAmt = getConvertedAmount(t.amount, t.currency);
+                if(t.type === 'income') totalInc += convAmt; else totalExp += convAmt; 
+            });
+            const ctxTotal = document.getElementById('myChartTotal').getContext('2d');
+            if (chartTotal) chartTotal.destroy();
+            chartTotal = new Chart(ctxTotal, { type: 'doughnut', data: { labels: [dict.lblTotalInc, dict.lblTotalExp], datasets: [{ data: [totalInc, totalExp], backgroundColor: ['#2f855a', '#c53030'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
+
+            const monthlyData = {};
+            transactions.forEach(t => { 
+                const ym = t.date.substring(0, 7); 
+                if(!monthlyData[ym]) monthlyData[ym] = { inc: 0, exp: 0 }; 
+                const convAmt = getConvertedAmount(t.amount, t.currency);
+                if(t.type === 'income') monthlyData[ym].inc += convAmt; else monthlyData[ym].exp += convAmt; 
+            });
+            const sortedMonths = Object.keys(monthlyData).sort();
+            const dataInc = sortedMonths.map(m => monthlyData[m].inc), dataExp = sortedMonths.map(m => monthlyData[m].exp), dataNet = sortedMonths.map(m => monthlyData[m].inc - monthlyData[m].exp);
+
+            const ctxFluc = document.getElementById('myChartFluctuation').getContext('2d');
+            if (chartFluctuation) chartFluctuation.destroy();
+            chartFluctuation = new Chart(ctxFluc, { type: 'line', data: { labels: sortedMonths, datasets: [ { label: dict.lblInc, data: dataInc, borderColor: '#38a169', backgroundColor: '#38a169', fill: false, tension: 0.3 }, { label: dict.lblExp, data: dataExp, borderColor: '#e53e3e', backgroundColor: '#e53e3e', fill: false, tension: 0.3 }, { label: dict.lblNet, data: dataNet, type: 'bar', backgroundColor: 'rgba(49, 130, 206, 0.6)', borderColor: 'rgba(49, 130, 206, 1)', borderWidth: 1 } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top' } } } });
+        };
+
+        monthFilter.addEventListener('change', updateUI);
+
+        // LOGIN Handler - Blokir akun baru
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); const email = document.getElementById('log-email').value; const password = document.getElementById('log-password').value; loader.style.display = 'block'; const dict = languages[currentLang];
+            try {
+                const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'login', email, password }) }); const data = await res.json();
+                
+                // Blokir jika dari backend mengembalikan false atau ada keterangan "Akun baru"
+                if (!data.success || (data.message && data.message.toLowerCase().includes("akun baru"))) {
+                    alert(dict.errWrongPass); // Pesan disatukan (Akun tidak terdaftar atau email/password salah)
+                    loader.style.display = 'none';
+                    return;
+                }
+
+                currentUser = { email, password }; 
+                transactions = (data.transactions === "[]" || !data.transactions) ? [] : JSON.parse(data.transactions); 
+                
+                // Set default currency untuk data terdahulu
+                transactions.forEach(t => { if(!t.currency) t.currency = 'IDR'; });
+                customAllocations.forEach(a => { if(!a.currency) a.currency = 'IDR'; });
+
+                loginScreen.style.display = 'none'; 
+                appScreen.style.display = 'flex'; 
+                
+                await updateExchangeRates();
+                updateUI(); 
+                
+            } catch (err) { alert(currentLang==='id'?"Gagal terhubung.":"Connection failed."); } finally { loader.style.display = 'none'; }
+        });
+
+        async function saveToCloud() {
+            const dict = languages[currentLang]; syncStatus.innerHTML = `<i data-lucide="cloud-upload" class="icon-small"></i> ${dict.syncSaved.replace("Tersimpan", "Menyimpan...").replace("Saved", "Saving...")}`; syncStatus.style.color = "var(--text-light)"; lucide.createIcons();
+            try {
+                const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'update', email: currentUser.email, password: currentUser.password, transactions: JSON.stringify(transactions) }) }); const data = await res.json();
+                if(data.success) { syncStatus.innerHTML = `<i data-lucide="cloud-check" class="icon-small"></i> ${dict.syncSaved}`; syncStatus.style.color = "var(--income-color)"; }
+                else throw new Error();
+            } catch (err) { syncStatus.innerHTML = `<i data-lucide="cloud-off" class="icon-small"></i> Error`; syncStatus.style.color = "var(--expense-color)"; } lucide.createIcons();
+        }
+
+        document.getElementById('tx-form').addEventListener('submit', (e) => {
+            e.preventDefault(); const type = document.getElementById('type').value; let finalCategory = document.getElementById('category').value; const subCategoryInput = document.getElementById('sub-category');
+            if (subCategoryInput.style.display !== 'none' && subCategoryInput.value.trim() !== '') { finalCategory = `${finalCategory} (${subCategoryInput.value.trim()})`; }
+            const amount = parseFloat(document.getElementById('amount').value); const date = document.getElementById('date').value;
+            
+            // Simpan transaksi dengan currency original yang aktif saat itu
+            transactions.push({ id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(36).slice(2), type, category: finalCategory, amount, currency: currentCurrency, date });
+            
+            const catInput = document.getElementById('category'); catInput.value = ''; catInput.readOnly = false; catInput.style.background = 'var(--input-bg)'; document.getElementById('unlock-category').style.display = 'none'; subCategoryInput.style.display = 'none'; subCategoryInput.value = ''; document.getElementById('amount').value = '';
+            updateUI(); saveToCloud(); 
+        });
+
+        window.deleteTx = function(id) { const dict = languages[currentLang]; if (!confirm(dict.alertDelTx)) return; const index = transactions.findIndex(t => String(t.id) === String(id)); if (index === -1) return; transactions.splice(index,1); updateUI(); saveToCloud(); };
+
+        window.logout = () => { appScreen.style.display = 'none'; loginScreen.style.display = 'block'; document.getElementById('log-password').value = ''; currentUser = { email: '', password: '' }; transactions = []; };
+
+        window.openExportModal = () => { document.getElementById('export-modal').style.display = 'flex'; const now = new Date(); const startDay = new Date(now.getFullYear(), now.getMonth(), 1); document.getElementById('export-start-date').valueAsDate = startDay; document.getElementById('export-end-date').valueAsDate = now; };
+        window.closeExportModal = () => { document.getElementById('export-modal').style.display = 'none'; };
+
+        window.processExcelExport = async () => {
+            const dict = languages[currentLang]; const startDate = document.getElementById('export-start-date').value; const endDate = document.getElementById('export-end-date').value;
+            if (!startDate || !endDate) return alert("Pilih tanggal / Select date");
+            let filtered = transactions.filter(t => t.date >= startDate && t.date <= endDate); filtered.sort((a, b) => a.date.localeCompare(b.date));
+            if (filtered.length === 0) return alert("No data");
+
+            const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Neraca Keuangan');
+            ws.addRow(["LAPORAN NERACA & JURNAL ARUS KAS KELUARGA"]); ws.addRow([`Periode Rentang: ${startDate} s/d ${endDate}`]); ws.addRow([]); 
+            const headerRow = ws.addRow(["Tanggal", "Kategori / Deskripsi", "Debit (Pemasukan)", "Kredit (Pengeluaran)", "Saldo Kumulatif"]); headerRow.font = { bold: true };
+            
+            let runningBalance = 0, totalDebit = 0, totalKredit = 0;
+            filtered.forEach(t => { 
+                const convAmt = getConvertedAmount(t.amount, t.currency);
+                let debit = t.type === 'income' ? convAmt : 0; 
+                let kredit = t.type === 'expense' ? convAmt : 0; 
+                totalDebit += debit; totalKredit += kredit; runningBalance += (debit - kredit); 
+                ws.addRow([t.date, t.category, debit, kredit, runningBalance]); 
+            });
+            
+            ws.addRow([]); const totalRow = ws.addRow(["TOTAL AKHIR REKAP", "", totalDebit, totalKredit, runningBalance]); totalRow.font = { bold: true };
+            ws.columns = [ { width: 15 }, { width: 35 }, { width: 20 }, { width: 20 }, { width: 20 } ];
+            ws.eachRow((row, rowNumber) => {
+                if (rowNumber >= 4 && row.values.length > 0 && rowNumber !== ws.rowCount - 1) { row.eachCell((cell) => { cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} }; }); }
+                if (rowNumber >= 4) {
+                    let debitCell = row.getCell(3), kreditCell = row.getCell(4), saldoCell = row.getCell(5);
+                    const sym = {IDR:'"Rp"', USD:'"$"', EUR:'"€"', SGD:'"S$"', JPY:'"¥"', MYR:'"RM"'}; const symb = sym[currentCurrency] || '"Rp"'; const currencyFormat = `${symb}#,##0;[Red]\-${symb}#,##0`;
+                    if (typeof debitCell.value === 'number') debitCell.numFmt = currencyFormat; if (typeof kreditCell.value === 'number') kreditCell.numFmt = currencyFormat; if (typeof saldoCell.value === 'number') saldoCell.numFmt = currencyFormat;
+                }
+            });
+            ws.mergeCells('A1:E1'); ws.mergeCells('A2:E2'); ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' }; ws.getCell('A2').alignment = { horizontal: 'center' };
+            const buffer = await wb.xlsx.writeBuffer(); const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }); saveAs(blob, `Neraca_Keuangan_${startDate}_hingga_${endDate}.xlsx`);
+            closeExportModal();
+        };
+
+        initSettings();
+    </script>
+</body>
+</html>
